@@ -47,11 +47,17 @@ public class KafkaGitopsConfigLoader {
 
     private static void handleDefaultConfig(Map<String, Object> config) {
         if (!config.containsKey(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG)) {
+            log.info("no bootstrap server config. using localhost:9092");
             config.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         }
 
         if (!config.containsKey(CommonClientConfigs.CLIENT_ID_CONFIG)) {
             config.put(CommonClientConfigs.CLIENT_ID_CONFIG, "kafka-gitops");
+        }
+
+        if (!config.containsKey(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG)) {
+            log.info("using SASL_PLAINTEXT security protocol");
+            config.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
         }
     }
 
@@ -59,9 +65,13 @@ public class KafkaGitopsConfigLoader {
         if (username.get() != null && password.get() != null) {
             // Do we need the Plain or SCRAM module?
             String loginModule = null;
-            if (config.get(SaslConfigs.SASL_MECHANISM).equals("PLAIN")) {
+            final Object saslMechanism = config.get(SaslConfigs.SASL_MECHANISM);
+
+            if (saslMechanism == null) {
+                throw new MissingConfigurationException("KAFKA_SASL_MECHANISM");
+            } else if (saslMechanism.equals("PLAIN")) {
                 loginModule = "org.apache.kafka.common.security.plain.PlainLoginModule";
-            } else if (config.get(SaslConfigs.SASL_MECHANISM).equals("SCRAM-SHA-256") || config.get(SaslConfigs.SASL_MECHANISM).equals("SCRAM-SHA-512")) {
+            } else if (saslMechanism.equals("SCRAM-SHA-256") || saslMechanism.equals("SCRAM-SHA-512")) {
                 loginModule = "org.apache.kafka.common.security.scram.ScramLoginModule";
             } else {
                 throw new MissingConfigurationException("KAFKA_SASL_MECHANISM");
